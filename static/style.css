@@ -15,11 +15,9 @@ body {
 }
 
 
-
-
 /* Glassmorphism Container */
 .container {
-    background: rgba(141, 51, 51, 0.15); /* Semi-transparent */
+    background: rgba(51, 80, 141, 0.3); /* Semi-transparent */
     border-radius: 15px;
     padding: 30px;
     backdrop-filter: blur(12px); /* Glass effect */
@@ -41,7 +39,7 @@ h1 {
 
 /* Inputs and Select */
 input, select {
-    width: 100%;
+    width: 60%;
     padding: 12px;
     margin: 10px 0;
     border: 2px solid rgba(255, 255, 255, 0.3);
@@ -154,7 +152,7 @@ input::placeholder {
 
 /* Translated Text Box */
 #translated-text-container {
-    width: 100%;
+    width: 90%;
     justify-content: center;
     max-height: 150px;
     overflow-y: auto;
