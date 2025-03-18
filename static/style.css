@@ -17,7 +17,7 @@ body {
 
 /* Glassmorphism Container */
 .container {
-    background: rgba(51, 80, 141, 0.3); /* Semi-transparent */
+    background: rgba(51, 80, 141, 0.7); /* Semi-transparent */
     border-radius: 15px;
     padding: 30px;
     backdrop-filter: blur(12px); /* Glass effect */
