@@ -7,11 +7,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <!-- Background Video -->
-    <video autoplay muted loop id="background-video">
-        <source src="{{ url_for('static', filename='background_gif.mp4') }}" type="video/mp4">
-        Your browser does not support the video tag.
-    </video>
 
     <div class="container">
         <h1>YouTube Audio Translator 🎵 🌍</h1>
@@ -41,12 +36,12 @@
         <h2>Results</h2>
 
         <div id="translated-text-container">
-            <h3>🌍 Translated Text</h3>
+            <h3 class="centered-text">🌍 Translated Text</h3>
             <p id="translated-text"></p>
         </div>
 
         <div id="translated-audio-container">
-            <h3>🎧 Translated Audio</h3>
+            <h3 class="centered-text">🎧 Translated Audio</h3>
             <audio id="translated-audio" controls>
                 <source id="audio-source" src="" type="audio/mp3">
                 Your browser does not support the audio element.
@@ -68,33 +63,27 @@
             let successMessage = document.getElementById("success-message");
 
             // Reset UI
-            successMessage.style.display = "none"; // Hide previous success message
-            progressContainer.style.display = "block"; // Show progress bar
+            successMessage.style.display = "none"; 
+            progressContainer.style.display = "block";
             updateProgress(10);
 
             fetch('/process', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `url=${encodeURIComponent(url)}&language=${encodeURIComponent(language)}`
             })
             .then(response => response.json())
             .then(data => {
-                updateProgress(50); // Halfway through
-
+                updateProgress(50);
                 if (data.translated_text && data.audio_file) {
                     document.getElementById("translated-text").textContent = data.translated_text;
                     document.getElementById("audio-source").src = data.audio_file;
                     document.getElementById("translated-audio").load();
-                    document.getElementById("translated-audio").play();  // Auto-play audio
-
-                    updateProgress(100); // Complete
-
-                    // Hide progress bar and show success message
+                    document.getElementById("translated-audio").play();
+                    updateProgress(100);
                     setTimeout(() => {
                         progressContainer.style.display = "none";
-                        successMessage.style.display = "block"; // Show "Translation Successful!"
+                        successMessage.style.display = "block";
                     }, 1000);
                 }
             })
@@ -104,5 +93,6 @@
             });
         });
     </script>
+
 </body>
 </html>
