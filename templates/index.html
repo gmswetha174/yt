@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Audio Translator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="container">
+        <h1>YouTube Audio Translator 🎵 🌍</h1>
+        <label for="url">YouTube URL:</label>
+        <input type="text" id="url" name="url" placeholder="Enter YouTube URL">
+        
+        <label for="language">Select Language:</label>
+        <select id="language" name="language">
+            {% for lang in languages %}
+                <option value="{{ lang }}">{{ lang }}</option>
+            {% endfor %}
+        </select>
+
+        <button id="translate-btn">🎙️ Translate</button>
+
+        <!-- Progress Bar -->
+        <div id="progress-container" style="display: none;">
+            <p id="progress-text">Processing...</p>
+            <div class="progress">
+                <div id="progress-bar" class="progress-bar">0%</div>
+            </div>
+        </div>
+
+        <!-- Success Message -->
+        <p id="success-message" style="display: none;">✅ Translation Successful!</p>
+
+        <h2>Results</h2>
+
+        <div id="translated-text-container">
+            <h3 class="centered-text">🌍 Translated Text</h3>
+            <p id="translated-text"></p>
+        </div>
+
+        <div id="translated-audio-container">
+            <h3 class="centered-text">🎧 Translated Audio</h3>
+            <audio id="translated-audio" controls>
+                <source id="audio-source" src="" type="audio/mp3">
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+    </div>
+
+    <script>
+        function updateProgress(value) {
+            let progressBar = document.getElementById("progress-bar");
+            progressBar.style.width = value + "%";
+            progressBar.textContent = value + "%";
+        }
+
+        document.getElementById("translate-btn").addEventListener("click", function() {
+            let url = document.getElementById("url").value;
+            let language = document.getElementById("language").value;
+            let progressContainer = document.getElementById("progress-container");
+            let successMessage = document.getElementById("success-message");
+
+            // Reset UI
+            successMessage.style.display = "none"; 
+            progressContainer.style.display = "block";
+            updateProgress(10);
+
+            fetch('/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `url=${encodeURIComponent(url)}&language=${encodeURIComponent(language)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                updateProgress(50);
+                if (data.translated_text && data.audio_file) {
+                    document.getElementById("translated-text").textContent = data.translated_text;
+                    document.getElementById("audio-source").src = data.audio_file;
+                    document.getElementById("translated-audio").load();
+                    document.getElementById("translated-audio").play();
+                    updateProgress(100);
+                    setTimeout(() => {
+                        progressContainer.style.display = "none";
+                        successMessage.style.display = "block";
+                    }, 1000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                updateProgress(0);
+            });
+        });
+    </script>
+
+</body>
+</html>
