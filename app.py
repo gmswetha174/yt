@@ -119,7 +119,7 @@ def translate_text_to_audio(text, target_lang, url):
         translated_chunks = [GoogleTranslator(source="auto", target=lang_code).translate(chunk) for chunk in text_chunks]
 
         translated_text = " ".join(translated_chunks)
-        audio_file = f"static/translated_audio_{lang_code}.mp3"
+        audio_file = f"static/translated_audio.mp3"
 
         tts = gTTS(text=translated_text, lang=lang_code)
         tts.save(audio_file)
