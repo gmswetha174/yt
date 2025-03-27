@@ -163,7 +163,7 @@ def text_to_audio(text, target_lang, url):
         return audio_file  
 
     except Exception as e:
-        print(f"Error in text-to-speech: {e}")
+        print(f"Error in text-to-sspeech: {e}")
         return None
 
 @app.route('/')
