@@ -1,0 +1,7 @@
+Flask
+deep-translator
+gtts
+requests
+assemblyai
+yt-dlp
+nltk

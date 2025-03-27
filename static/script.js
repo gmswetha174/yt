@@ -1,33 +1,34 @@
-document.getElementById("translateButton").addEventListener("click", function () {
-    let url = document.getElementById("youtubeUrl").value;
-    let language = document.getElementById("languageSelect").value;
-    let progressBar = document.getElementById("progressBar");
-    let progressContainer = document.getElementById("progressContainer");
-    let progressText = document.getElementById("progressText");
+document.getElementById("translate-btn").addEventListener("click", function () {
+    let url = document.getElementById("url").value;
+    let language = document.getElementById("language").value;
+    let progressBar = document.getElementById("progress-bar");
+    let progressContainer = document.getElementById("progress-container");
+    let progressText = document.getElementById("progress-text");
+    let successMessage = document.getElementById("success-message");
 
     if (!url) {
         alert("Please enter a YouTube URL.");
         return;
     }
 
-    // Show the progress bar initially
+    // Show progress initially
     progressBar.style.width = "0%";
     progressContainer.style.display = "block";
     progressText.innerText = "Processing...";
 
     function updateProgress() {
         fetch(`/progress?url=${encodeURIComponent(url)}`)
-        .then(response => response.json())
-        .then(data => {
-            let progress = data.progress;
-            progressBar.style.width = progress + "%";
-            progressText.innerText = `Processing... ${progress}%`;
+            .then(response => response.json())
+            .then(data => {
+                let progress = data.progress;
+                progressBar.style.width = progress + "%";
+                progressText.innerText = `Processing... ${progress}%`;
 
-            if (progress < 100) {
-                setTimeout(updateProgress, 1000); // Poll every second
-            }
-        })
-        .catch(error => console.error("Error fetching progress:", error));
+                if (progress < 100) {
+                    setTimeout(updateProgress, 1000);
+                }
+            })
+            .catch(error => console.error("Error fetching progress:", error));
     }
 
     updateProgress();
@@ -43,23 +44,25 @@ document.getElementById("translateButton").addEventListener("click", function ()
             alert(data.error);
             return;
         }
-
-        // Hide the progress bar after completion
+    
+        // Hide progress bar after completion
         progressContainer.style.display = "none";
-
-        // Show success message
-        let successMessage = document.createElement("p");
-        successMessage.innerText = "✅ Translation Successful!";
-        successMessage.style.color = "#00FF00";  // Green color
-        successMessage.style.fontWeight = "bold";
-        successMessage.style.fontSize = "18px";
-        progressContainer.parentElement.appendChild(successMessage);
-
-        document.getElementById("translatedText").innerText = data.translated_text;
-        document.getElementById("translatedAudio").src = data.audio_file;
+        successMessage.style.display = "block";
+    
+        // Set translated text
+        document.getElementById("translated-text").innerText = data.translated_text;
+        document.getElementById("summarized-text").innerText = data.summarized_text;
+    
+        // Check if audio file exists before playing
+        if (data.audio_file) {
+            document.getElementById("audio-source").src = data.audio_file;
+            document.getElementById("translated-audio").load();
+            document.getElementById("translated-audio").play();
+        }
     })
     .catch(error => {
         console.error("Error:", error);
         alert("An error occurred.");
     });
+    
 });

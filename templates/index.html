@@ -15,6 +15,7 @@
         
         <label for="language">Select Language:</label>
         <select id="language" name="language">
+            <option value="" disabled selected>Select a Language</option>
             {% for lang in languages %}
                 <option value="{{ lang }}">{{ lang }}</option>
             {% endfor %}
@@ -22,7 +23,6 @@
 
         <button id="translate-btn">🎙️ Translate</button>
 
-        <!-- Progress Bar -->
         <div id="progress-container" style="display: none;">
             <p id="progress-text">Processing...</p>
             <div class="progress">
@@ -30,14 +30,20 @@
             </div>
         </div>
 
-        <!-- Success Message -->
         <p id="success-message" style="display: none;">✅ Translation Successful!</p>
 
         <h2>Results</h2>
 
-        <div id="translated-text-container">
-            <h3 class="centered-text">🌍 Translated Text</h3>
-            <p id="translated-text"></p>
+        <div class="result-container">
+            <div class="result-box">
+                <h3 class="centered-text">🌍 Translated Text</h3>
+                <p id="translated-text"></p>
+            </div>
+
+            <div class="result-box">
+                <h3 class="centered-text">📜 Summarized Text</h3>
+                <p id="summarized-text"></p>
+            </div>
         </div>
 
         <div id="translated-audio-container">
@@ -62,7 +68,6 @@
             let progressContainer = document.getElementById("progress-container");
             let successMessage = document.getElementById("success-message");
 
-            // Reset UI
             successMessage.style.display = "none"; 
             progressContainer.style.display = "block";
             updateProgress(10);
@@ -75,8 +80,9 @@
             .then(response => response.json())
             .then(data => {
                 updateProgress(50);
-                if (data.translated_text && data.audio_file) {
+                if (data.translated_text && data.audio_file && data.summarized_text) {
                     document.getElementById("translated-text").textContent = data.translated_text;
+                    document.getElementById("summarized-text").textContent = data.summarized_text;
                     document.getElementById("audio-source").src = data.audio_file;
                     document.getElementById("translated-audio").load();
                     document.getElementById("translated-audio").play();

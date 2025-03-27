@@ -1,49 +1,67 @@
+
+
 from flask import Flask, render_template, request, jsonify
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import os
 import subprocess
+import requests
 import assemblyai as aai
 from yt_dlp import YoutubeDL
-import time
+import nltk
+from nltk.tokenize import sent_tokenize, word_tokenize
+from collections import Counter
+import time  
+
+
 
 app = Flask(__name__)
 
-# Store progress per YouTube URL
 progress_status = {}
 
+ASSEMBLYAI_API_KEY = "966db5dbbc914cf4b787cd71c7fa517d"
+
 available_languages = {
-    'Tamil': 'ta',
-    'Hindi': 'hi',
-    'French': 'fr',
-    'Spanish': 'es',
-    'German': 'de',
-    'Chinese': 'zh-CN',
-    'Japanese': 'ja'
+    'English (Global)': 'en', 'Spanish': 'es', 'French': 'fr', 'German': 'de',
+    'Italian': 'it', 'Portuguese': 'pt', 'Dutch': 'nl', 'Arabic': 'ar',
+    'Russian': 'ru', 'Chinese': 'zh', 'Japanese': 'ja', 'Korean': 'ko',
+    'Hindi': 'hi', 'Bengali': 'bn', 'Urdu': 'ur', 'Persian': 'fa',
+    'Turkish': 'tr', 'Hebrew': 'he', 'Tamil': 'ta', 'Telugu': 'te',
+    'Marathi': 'mr', 'Punjabi': 'pa', 'Vietnamese': 'vi', 'Thai': 'th',
+    'Indonesian': 'id', 'Malay': 'ms', 'Swahili': 'sw', 'Polish': 'pl',
+    'Romanian': 'ro', 'Ukrainian': 'uk', 'Greek': 'el', 'Czech': 'cs',
+    'Slovak': 'sk', 'Slovenian': 'sl', 'Serbian': 'sr', 'Croatian': 'hr',
+    'Hungarian': 'hu', 'Danish': 'da', 'Swedish': 'sv', 'Norwegian': 'no',
+    'Finnish': 'fi', 'Lithuanian': 'lt', 'Latvian': 'lv', 'Estonian': 'et',
+    'Bulgarian': 'bg', 'Basque': 'eu', 'Georgian': 'ka', 'Armenian': 'hy',
+    'Albanian': 'sq', 'Nepali': 'ne', 'Burmese': 'my', 'Sinhala': 'si',
+    'Somali': 'so', 'Pashto': 'ps', 'Lao': 'lo', 'Kazakh': 'kk',
+    'Uzbek': 'uz', 'Azerbaijani': 'az', 'Macedonian': 'mk', 'Yoruba': 'yo',
+    'Haitian': 'ht'
 }
 
 def update_progress(url, value):
-    """ Update the progress of a specific YouTube URL """
     progress_status[url] = value
+    print(f"[DEBUG] Progress for {url}: {value}%")  
 
 @app.route('/progress', methods=['GET'])
 def get_progress():
-    """ Return progress status for a given URL """
     url = request.args.get('url')
     return jsonify({"progress": progress_status.get(url, 0)})
 
 def clear_old_audio():
     try:
         for file in os.listdir("static"):
-            if file.startswith("downloaded_audio") or file.startswith("translated_audio_"):
+            if file.startswith("downloaded_audio") or file == "translated_audio.mp3":
                 os.remove(os.path.join("static", file))
     except Exception as e:
-        print(f"Error clearing old files: {e}")
+        print(f"Error clearing old audio files: {e}")
 
 def download_audio(url):
     try:
+        start_time = time.time()  # Start timing
         clear_old_audio()
-        update_progress(url, 10)  # Update progress to 10%
+        update_progress(url, 10)
 
         output_filename = "static/downloaded_audio"
         ydl_opts = {'format': 'bestaudio/best', 'outtmpl': f"{output_filename}.%(ext)s"}
@@ -65,71 +83,88 @@ def download_audio(url):
             subprocess.run(command, shell=True, check=True)
             os.remove(audio_path)
 
-        update_progress(url, 30)  # Update progress to 30%
+        update_progress(url, 30)
         return mp3_file if os.path.exists(mp3_file) else None
     except Exception as e:
-        print(f"Error downloading audio: {e}")
         return None
 
 def transcribe_audio(file_path, url):
     try:
+        start_time = time.time()
         if not os.path.exists(file_path):
             return None
 
-        update_progress(url, 50)  # Update progress to 50%
+        update_progress(url, 50)
 
-        aai.settings.api_key = "8ded3e61ee47493b8d2bcc093ca1bf67"
+        # Set API key
+        aai.settings.api_key = ASSEMBLYAI_API_KEY
+        
+        # Initialize Transcriber
         transcriber = aai.Transcriber()
+        
+        # Upload file and transcribe
         transcript = transcriber.transcribe(file_path)
 
         if transcript and transcript.text:
-            update_progress(url, 70)  # Update progress to 70%
+            update_progress(url, 70)
             return transcript.text
         else:
             return None
     except Exception as e:
-        print(f"Error in transcription: {e}")
+        print(f"[ERROR] Exception in transcribe_audio: {e}")
         return None
 
-def split_text(text, max_length=500):
-    sentences = text.split('. ')
-    chunks, current_chunk = [], ""
+def summarize_text(text):
+    try:
+        sentences = sent_tokenize(text)
+        if len(sentences) <= 3:
+            return text  
 
-    for sentence in sentences:
-        if len(current_chunk) + len(sentence) < max_length:
-            current_chunk += sentence + ". "
-        else:
-            chunks.append(current_chunk.strip())
-            current_chunk = sentence + ". "
+        words = word_tokenize(text)
+        word_frequencies = Counter(words)
 
-    if current_chunk:
-        chunks.append(current_chunk.strip())
+        sentence_scores = {}
+        for sentence in sentences:
+            for word in word_tokenize(sentence.lower()):
+                if word in word_frequencies:
+                    sentence_scores[sentence] = sentence_scores.get(sentence, 0) + word_frequencies[word]
 
-    return chunks
+        ranked_sentences = sorted(sentence_scores, key=sentence_scores.get, reverse=True)
+        summary_sentences = ranked_sentences[:max(3, len(sentences) // 3)]  
 
-def translate_text_to_audio(text, target_lang, url):
+        return " ".join(summary_sentences)
+
+    except Exception as e:
+        print(f"Error in text summarization: {e}")
+        return text  
+
+def translate_text(text, target_lang):
     try:
         if target_lang not in available_languages:
-            return None, None
-
-        update_progress(url, 80)  # Update progress to 80%
-
+            return None
+        
         lang_code = available_languages[target_lang]
-        text_chunks = split_text(text, max_length=500)
-        translated_chunks = [GoogleTranslator(source="auto", target=lang_code).translate(chunk) for chunk in text_chunks]
-
-        translated_text = " ".join(translated_chunks)
-        audio_file = f"static/translated_audio.mp3"
-
-        tts = gTTS(text=translated_text, lang=lang_code)
-        tts.save(audio_file)
-
-        update_progress(url, 100)  # Update progress to 100%
-        return audio_file, translated_text
+        return GoogleTranslator(source="auto", target=lang_code).translate(text)
 
     except Exception as e:
         print(f"Error in translation: {e}")
-        return None, None
+        return None
+
+def text_to_audio(text, target_lang, url):
+    try:
+        update_progress(url, 80)
+
+        lang_code = available_languages[target_lang]
+        audio_file = f"static/translated_audio.mp3"
+        tts = gTTS(text=text.replace("\n", " "), lang=lang_code)
+        tts.save(audio_file)
+
+        update_progress(url, 100)
+        return audio_file  
+
+    except Exception as e:
+        print(f"Error in text-to-speech: {e}")
+        return None
 
 @app.route('/')
 def home():
@@ -143,7 +178,7 @@ def process():
     if not youtube_url or not target_lang:
         return jsonify({"error": "Missing YouTube URL or language"}), 400
 
-    update_progress(youtube_url, 5)  # Start progress
+    update_progress(youtube_url, 5)
 
     audio_file = download_audio(youtube_url)
     if not audio_file:
@@ -153,13 +188,18 @@ def process():
     if not transcription:
         return jsonify({"error": "Transcription failed"}), 400
 
-    translated_audio, translated_text = translate_text_to_audio(transcription, target_lang, youtube_url)
-    if not translated_audio or not translated_text:
-        return jsonify({"error": "Translation or TTS failed"}), 400
+    translated_text = translate_text(transcription, target_lang)
+    if not translated_text:
+        return jsonify({"error": "Translation failed"}), 400
+
+    summarized_text = summarize_text(translated_text)
+
+    translated_audio = text_to_audio(translated_text, target_lang, youtube_url)
 
     return jsonify({
-        "translated_text": translated_text,
-        "audio_file": translated_audio  
+        "translated_text": translated_text,  
+        "summarized_text": summarized_text,  
+        "audio_file": translated_audio
     })
 
 if __name__ == "__main__":
