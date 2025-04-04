@@ -1,5 +1,3 @@
-
-
 from flask import Flask, render_template, request, jsonify
 from deep_translator import GoogleTranslator
 from gtts import gTTS
@@ -12,8 +10,6 @@ import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
 from collections import Counter
 import time  
-
-
 
 app = Flask(__name__)
 
@@ -59,7 +55,6 @@ def clear_old_audio():
 
 def download_audio(url):
     try:
-        start_time = time.time()  # Start timing
         clear_old_audio()
         update_progress(url, 10)
 
@@ -70,7 +65,7 @@ def download_audio(url):
             ydl.download([url])
 
         downloaded_files = [f for f in os.listdir("static") if f.startswith("downloaded_audio")]
-        audio_file = next((f for f in downloaded_files if f.endswith(".webm") or f.endswith(".m4a")), None)
+        audio_file = next((f for f in downloaded_files if f.endswith((".webm", ".m4a", ".mp4"))), None)
 
         if not audio_file:
             return None
@@ -86,32 +81,26 @@ def download_audio(url):
         update_progress(url, 30)
         return mp3_file if os.path.exists(mp3_file) else None
     except Exception as e:
+        print(f"Error downloading audio: {e}")
         return None
 
 def transcribe_audio(file_path, url):
     try:
-        start_time = time.time()
         if not os.path.exists(file_path):
             return None
 
         update_progress(url, 50)
 
-        # Set API key
         aai.settings.api_key = ASSEMBLYAI_API_KEY
-        
-        # Initialize Transcriber
         transcriber = aai.Transcriber()
-        
-        # Upload file and transcribe
         transcript = transcriber.transcribe(file_path)
 
         if transcript and transcript.text:
             update_progress(url, 70)
             return transcript.text
-        else:
-            return None
+        return None
     except Exception as e:
-        print(f"[ERROR] Exception in transcribe_audio: {e}")
+        print(f"Error in transcription: {e}")
         return None
 
 def summarize_text(text):
@@ -135,7 +124,7 @@ def summarize_text(text):
         return " ".join(summary_sentences)
 
     except Exception as e:
-        print(f"Error in text summarization: {e}")
+        print(f"Error in summarization: {e}")
         return text  
 
 def translate_text(text, target_lang):
@@ -163,7 +152,7 @@ def text_to_audio(text, target_lang, url):
         return audio_file  
 
     except Exception as e:
-        print(f"Error in text-to-sspeech: {e}")
+        print(f"Error in text-to-speech: {e}")
         return None
 
 @app.route('/')
@@ -188,11 +177,11 @@ def process():
     if not transcription:
         return jsonify({"error": "Transcription failed"}), 400
 
-    translated_text = translate_text(transcription, target_lang)
+    translated_text = translate_text(transcription, target_lang)  # Translate the transcribed text first
     if not translated_text:
         return jsonify({"error": "Translation failed"}), 400
 
-    summarized_text = summarize_text(translated_text)
+    summarized_text = summarize_text(translated_text)  # Summarize after translation
 
     translated_audio = text_to_audio(translated_text, target_lang, youtube_url)
 
