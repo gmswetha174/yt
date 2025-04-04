@@ -9,7 +9,9 @@ from yt_dlp import YoutubeDL
 import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
 from collections import Counter
-import time  
+import time
+import re
+from transformers import pipeline
 
 app = Flask(__name__)
 
@@ -35,6 +37,8 @@ available_languages = {
     'Uzbek': 'uz', 'Azerbaijani': 'az', 'Macedonian': 'mk', 'Yoruba': 'yo',
     'Haitian': 'ht'
 }
+
+summarizer = pipeline("summarization")
 
 def update_progress(url, value):
     progress_status[url] = value
@@ -105,27 +109,13 @@ def transcribe_audio(file_path, url):
 
 def summarize_text(text):
     try:
-        sentences = sent_tokenize(text)
-        if len(sentences) <= 3:
-            return text  
-
-        words = word_tokenize(text)
-        word_frequencies = Counter(words)
-
-        sentence_scores = {}
-        for sentence in sentences:
-            for word in word_tokenize(sentence.lower()):
-                if word in word_frequencies:
-                    sentence_scores[sentence] = sentence_scores.get(sentence, 0) + word_frequencies[word]
-
-        ranked_sentences = sorted(sentence_scores, key=sentence_scores.get, reverse=True)
-        summary_sentences = ranked_sentences[:max(3, len(sentences) // 3)]  
-
-        return " ".join(summary_sentences)
+        # Use pre-trained summarization model from HuggingFace
+        summarized = summarizer(text, max_length=150, min_length=30, do_sample=False)
+        return summarized[0]['summary_text']
 
     except Exception as e:
-        print(f"Error in summarization: {e}")
-        return text  
+        print(f"Summarization error: {e}")
+        return text
 
 def translate_text(text, target_lang):
     try:
@@ -144,16 +134,43 @@ def text_to_audio(text, target_lang, url):
         update_progress(url, 80)
 
         lang_code = available_languages[target_lang]
+        text = text.replace("\n", " ")
+
+        # Split text into <=5000 char chunks
+        chunks = [text[i:i+4900] for i in range(0, len(text), 4900)]
+
         audio_file = f"static/translated_audio.mp3"
-        tts = gTTS(text=text.replace("\n", " "), lang=lang_code)
-        tts.save(audio_file)
+        temp_files = []
+
+        for idx, chunk in enumerate(chunks):
+            temp_file = f"static/temp_audio_{idx}.mp3"
+            tts = gTTS(text=chunk, lang=lang_code)
+            tts.save(temp_file)
+            temp_files.append(temp_file)
+
+        # Combine all audio chunks into a single file using ffmpeg
+        if len(temp_files) == 1:
+            os.rename(temp_files[0], audio_file)
+        else:
+            list_file = "static/audio_list.txt"
+            with open(list_file, "w") as f:
+                for file in temp_files:
+                    f.write(f"file '{file}'\n")
+            command = f"ffmpeg -y -f concat -safe 0 -i {list_file} -c copy {audio_file}"
+            subprocess.run(command, shell=True, check=True)
+
+            # Clean up
+            for f in temp_files:
+                os.remove(f)
+            os.remove(list_file)
 
         update_progress(url, 100)
-        return audio_file  
+        return audio_file
 
     except Exception as e:
         print(f"Error in text-to-speech: {e}")
         return None
+
 
 @app.route('/')
 def home():
@@ -177,11 +194,11 @@ def process():
     if not transcription:
         return jsonify({"error": "Transcription failed"}), 400
 
-    translated_text = translate_text(transcription, target_lang)  # Translate the transcribed text first
+    translated_text = translate_text(transcription, target_lang)
     if not translated_text:
         return jsonify({"error": "Translation failed"}), 400
 
-    summarized_text = summarize_text(translated_text)  # Summarize after translation
+    summarized_text = summarize_text(translated_text)
 
     translated_audio = text_to_audio(translated_text, target_lang, youtube_url)
 
